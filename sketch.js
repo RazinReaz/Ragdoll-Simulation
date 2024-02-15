@@ -39,6 +39,12 @@ function attach(from, to, stiff, vis) {
 function setup() {
   createCanvas(SCREENWIDTH, SCREENHEIGHT);
   background(255);
+  push();
+  {
+    fill(0);
+    text('Press G to turn gravity on or off', 250, 20);
+  }
+  pop();
 
   //Head
   var Head = new Point(X_CENTER, 100 + 5);
