@@ -1,7 +1,7 @@
 # Ragdoll-Simulation
 A simulation of a stick figure created using verlet integration.
 
-To interact with the scene, click [here](https://razinreaz.github.io/Ragdoll-Simulation/)
+[Interact with the scene!](https://razinreaz.github.io/Ragdoll-Simulation/)
 
 # Instructions
 - use the mouse to control a ball that can interact with the stick figure
