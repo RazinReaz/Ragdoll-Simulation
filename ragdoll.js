@@ -8,72 +8,101 @@ function attach(from, to, stiffness, visibliity, constraints) {
     })
 }
 
-function boundary_solve(p, vx, vy) {
-    if (p.x > SCREENWIDTH) {
-        p.x = SCREENWIDTH
-        p.oldx = p.x + vx * BOUNCEREDUCTION;
-    } else if (p.x < 0) {
-        p.x = 0;
-        p.oldx = p.x + vx * BOUNCEREDUCTION;
+function boundary_solve(joint) {
+    var vx = joint.x - joint.oldx;
+    var vy = joint.y - joint.oldy;
+    if (joint.x > SCREENWIDTH) {
+        joint.x = SCREENWIDTH
+        joint.oldx = joint.x + vx * BOUNCEREDUCTION;
+    } else if (joint.x < 0) {
+        joint.x = 0;
+        joint.oldx = joint.x + vx * BOUNCEREDUCTION;
     }
-    if (p.y > SCREENHEIGHT) {
-        p.y = SCREENHEIGHT;
-        p.oldy = p.y + vy * BOUNCEREDUCTION;
-    } else if (p.y < 0) {
-        p.y = 0;
-        p.oldy = p.y + vy * BOUNCEREDUCTION;
+    if (joint.y > SCREENHEIGHT) {
+        joint.y = SCREENHEIGHT;
+        joint.oldy = joint.y + vy * BOUNCEREDUCTION;
+    } else if (joint.y < 0) {
+        joint.y = 0;
+        joint.oldy = joint.y + vy * BOUNCEREDUCTION;
     }
 }
 
+function velocity_after_collision_along_1_axis(m_a, m_b, v_a1, v_b1) {
+    let denom = m_a + m_b;
+    let numer_a = (m_a - m_b) * v_a1 + 2 * m_b * v_b1;
+    let numer_b = 2 * m_a * v_a1 + (m_b - m_a) * v_b1;
+
+    return {
+        v_a2: numer_a / denom,
+        v_b2: numer_b / denom
+    }
+}
+
+function collision_resolve(a, b) {
+    // assuming collision has been detected
+    const m_a = a.mass;
+    const m_b = b.mass;
+
+    const {x: v_ax1, y: v_ay1} = a.getVelocity();
+    const {x: v_bx1, y: v_by1} = b.getVelocity();
+
+    const {v_a2: v_ax2, v_b2: v_bx2} = velocity_after_collision_along_1_axis(m_a, m_b, v_ax1, v_bx1);
+    const {v_a2: v_ay2, v_b2: v_by2} = velocity_after_collision_along_1_axis(m_a, m_b, v_ay1, v_by1);
+
+    a.oldx = a.x - v_ax2 * 0.9;
+    a.oldy = a.y - v_ay2 * 0.9;
+    b.oldx = b.x - v_bx2 * 0.9;
+    b.oldy = b.y - v_by2 * 0.9;
+}
+
 function mouse_ball_interaction(joint, mousex, mousey) {
-    
     var joint_vx = joint.x - joint.oldx;
     var joint_vy = joint.y - joint.oldy;
     
     var dx = joint.x - mousex;
     var dy = joint.y - mousey;
 
-    var dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist < MOUSE_BALL_RADIUS + joint.radius) {
-        var joint_mass = joint.radius
-        var mouse_mass = MOUSE_BALL_RADIUS
+    var distsq = dx * dx + dy * dy;
+    if (distsq > (MOUSE_BALL_RADIUS + joint.radius)**2) 
+        return;
+    
+    var dist = Math.sqrt(distsq);
+    var joint_mass = joint.radius;
+    var mouse_mass = MOUSE_MASS;
 
-        var nx = dx / dist;
-        var ny = dy / dist;
-        var tx = -ny;
-        var ty = nx;
+    var nx = dx / dist;
+    var ny = dy / dist;
+    var tx = -ny;
+    var ty = nx;
 
-        var dpTan = joint_vx * tx + joint_vy * ty;
-        var dpnorm = joint_vx * nx + joint_vy * ny;
+    var dpTan = joint_vx * tx + joint_vy * ty;
+    var dpnorm = joint_vx * nx + joint_vy * ny;
 
-        var m = dpnorm * (joint_mass - mouse_mass) / (joint_mass + mouse_mass)
+    var m = dpnorm * (joint_mass - mouse_mass) / (joint_mass + mouse_mass)
 
-        joint_vx = tx * dpTan + nx * m;
-        joint_vy = ty * dpTan + ny * m;
+    joint_vx = tx * dpTan + nx * m;
+    joint_vy = ty * dpTan + ny * m;
 
-        joint.x = mousex + nx * (joint.radius + MOUSE_BALL_RADIUS);
-        joint.y = mousey + ny * (joint.radius + MOUSE_BALL_RADIUS);
-        joint.oldx = joint.x - joint_vx;
-        joint.oldy = joint.y - joint_vy;
-    }
-
+    joint.x = mousex + nx * (joint.radius + MOUSE_BALL_RADIUS);
+    joint.y = mousey + ny * (joint.radius + MOUSE_BALL_RADIUS);
+    joint.oldx = joint.x - joint_vx;
+    joint.oldy = joint.y - joint_vy;
 }
 
 
 class Ragdoll {
-    
     constructor(x, y) {
-        this.head = new Joint(20, x, y, );
-        this.neck = new Joint(3, x, y + 10);
-        this.left_elbow = new Joint(3, x - 20, y + 20);
-        this.left_hand = new Joint(3, x - 40, y + 20);
-        this.right_elbow = new Joint(3, x + 20, y + 20);
-        this.right_hand = new Joint(3, x + 40, y + 20);
-        this.hip = new Joint(3, x, y + 60);
-        this.left_knee = new Joint(3, x - 40, y + 90);
-        this.left_foot = new Joint(3, x - 80, y + 110);
-        this.right_knee = new Joint(3, x + 40, y + 90);
-        this.right_foot = new Joint(3, x + 80, y + 110);
+        this.head = new Joint(RAGDOLL_HEAD_RADIUS, x, y);
+        this.neck = new Joint(RAGDOLL_NECK_RADIUS, x, y + 5);
+        this.left_elbow = new Joint(RAGDOLL_JOINT_RADIUS, x - 15, y + 10);
+        this.left_hand = new Joint(RAGDOLL_JOINT_RADIUS, x - 30, y + 10);
+        this.right_elbow = new Joint(RAGDOLL_JOINT_RADIUS, x + 15, y + 10);
+        this.right_hand = new Joint(RAGDOLL_JOINT_RADIUS, x + 30, y + 10);
+        this.hip = new Joint(RAGDOLL_JOINT_RADIUS, x, y + 30);
+        this.left_knee = new Joint(RAGDOLL_JOINT_RADIUS, x - 20, y + 45);
+        this.right_knee = new Joint(RAGDOLL_JOINT_RADIUS, x + 20, y + 45);
+        this.left_foot = new Joint(RAGDOLL_JOINT_RADIUS, x - 40, y + 55);
+        this.right_foot = new Joint(RAGDOLL_JOINT_RADIUS, x + 40, y + 55);
 
         this.joints = [this.head, this.neck, this.left_elbow, this.left_hand, this.right_elbow, this.right_hand, this.hip, this.left_knee, this.left_foot, this.right_knee, this.right_foot];
 
@@ -95,16 +124,15 @@ class Ragdoll {
     }
 
     update_joint(joint) {
-        var vx = (joint.x - joint.oldx) * FRICTION;
-        var vy = (joint.y - joint.oldy) * FRICTION;
+        var velocity = joint.getVelocity();
+        var vx = velocity.x * FRICTION;
+        var vy = velocity.y * FRICTION;
 
         joint.oldx = joint.x;
         joint.oldy = joint.y;
         joint.x += vx;
         joint.y += vy;
         joint.y += g;
-
-        boundary_solve(joint, vx, vy);
     }
 
     update_constraint(constraint) {
@@ -123,30 +151,73 @@ class Ragdoll {
     }
 
 
-    update_once(mousex, mousey) {
+    update_pos() {
         for (let joint of this.joints) {
             this.update_joint(joint);
-            mouse_ball_interaction(joint, mousex, mousey);
+            // mouse_ball_interaction(joint, mousex, mousey);
         }
+    }
+
+    boundary_check() {
+        for (let joint of this.joints) {
+            boundary_solve(joint);
+        }
+    }
+    
+    solve_constraints() {
         for (let constraint of this.constraints) {
             this.update_constraint(constraint);
         }
     }
 
-    render(){
-        stroke(0);
-        // limbs
-        for (var i = 0; i < this.constraints.length; i++) {
-          var c = this.constraints[i];
-          if (c.visible == true)
-            line(c.p0.x, c.p0.y, c.p1.x, c.p1.y);
+    interact_with_mouse(mousex, mousey) {
+        for (let joint of this.joints) {
+            mouse_ball_interaction(joint, mousex, mousey);
+        }
+    }
+
+    collision_with_others(ragdolls, grid) {
+        let all_other_joints = [];
+        for (const doll of ragdolls) {
+            if (doll === this) continue;
+            all_other_joints.push(...doll.joints);
+        }
+        let neighbours = all_other_joints;
+        for (let joint1 of this.joints) {
+            for (let joint2 of neighbours) {
+                let collision = joint1.collides_with_joint(joint2);
+                if (collision) {
+                    collision_resolve(joint1, joint2);
+                    // joint1.color = 'red';
+                    // joint2.color = 'red';
+                    // push();
+                    // joint2.render();
+                    // joint1.render();
+                    // stroke('blue');
+                    // strokeWeight(2);
+                    // line(joint1.x, joint1.y, joint2.x, joint2.y)
+                    // pop();
+                    // noLoop();
+                }
+
+            }
         }
 
-        // joints
-        fill(0);
-        for (var i = 0; i < this.joints.length; i++) {
-          var j = this.joints[i];
-          ellipse(j.x, j.y, j.radius, j.radius);
+    }
+
+    render(){
+        push();
+        {
+            for (let joint of this.joints) {
+                joint.render();
+            }
+            stroke(0);
+            for (let constraint of this.constraints) {
+                if (constraint.visible) {
+                    line(constraint.p0.x, constraint.p0.y, constraint.p1.x, constraint.p1.y);
+                }
+            }
         }
+        pop();
     }
 }
