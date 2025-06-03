@@ -11,18 +11,18 @@ function attach(from, to, stiffness, visibliity, constraints) {
 function boundary_solve(joint) {
     var vx = joint.x - joint.oldx;
     var vy = joint.y - joint.oldy;
-    if (joint.x > SCREENWIDTH) {
-        joint.x = SCREENWIDTH
+    if (joint.x > SCREENWIDTH - joint.radius) {
+        joint.x = SCREENWIDTH - joint.radius;
         joint.oldx = joint.x + vx * BOUNCEREDUCTION;
-    } else if (joint.x < 0) {
-        joint.x = 0;
+    } else if (joint.x < joint.radius) {
+        joint.x = joint.radius;
         joint.oldx = joint.x + vx * BOUNCEREDUCTION;
     }
-    if (joint.y > SCREENHEIGHT) {
-        joint.y = SCREENHEIGHT;
+    if (joint.y > SCREENHEIGHT - joint.radius) {
+        joint.y = SCREENHEIGHT - joint.radius;
         joint.oldy = joint.y + vy * BOUNCEREDUCTION;
-    } else if (joint.y < 0) {
-        joint.y = 0;
+    } else if (joint.y < joint.radius) {
+        joint.y = joint.radius;
         joint.oldy = joint.y + vy * BOUNCEREDUCTION;
     }
 }
@@ -49,10 +49,10 @@ function collision_resolve(a, b) {
     const {v_a2: v_ax2, v_b2: v_bx2} = velocity_after_collision_along_1_axis(m_a, m_b, v_ax1, v_bx1);
     const {v_a2: v_ay2, v_b2: v_by2} = velocity_after_collision_along_1_axis(m_a, m_b, v_ay1, v_by1);
 
-    a.oldx = a.x - v_ax2 * 0.9;
-    a.oldy = a.y - v_ay2 * 0.9;
-    b.oldx = b.x - v_bx2 * 0.9;
-    b.oldy = b.y - v_by2 * 0.9;
+    a.oldx = a.x - v_ax2;
+    a.oldy = a.y - v_ay2;
+    b.oldx = b.x - v_bx2;
+    b.oldy = b.y - v_by2;
 }
 
 function mouse_ball_interaction(joint, mousex, mousey) {
@@ -182,8 +182,9 @@ class Ragdoll {
             if (doll === this) continue;
             all_other_joints.push(...doll.joints);
         }
-        let neighbours = all_other_joints;
         for (let joint1 of this.joints) {
+            let neighbours = grid.query(joint1)
+            // let neighbours = all_other_joints;
             for (let joint2 of neighbours) {
                 let collision = joint1.collides_with_joint(joint2);
                 if (collision) {
